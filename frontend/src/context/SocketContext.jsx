@@ -1,12 +1,14 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { AuthContext } from "./AuthContext";
+import { useNotificationStore } from "../lib/notificationStore";
 
 export const SocketContext = createContext();
 
 export const SocketContextProvider = ({ children }) => {
   const { currentUser } = useContext(AuthContext);
   const [socket, setSocket] = useState(null);
+  const fetchNotifications = useNotificationStore((state) => state.fetch);
 
   useEffect(() => {
     const s = io("http://localhost:4000");
@@ -15,7 +17,7 @@ export const SocketContextProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-  currentUser && socket?.emit("newUser", currentUser.id);
+    currentUser && socket?.emit("newUser", currentUser.id);
   }, [currentUser, socket]);
 
   useEffect(() => {
@@ -26,11 +28,16 @@ export const SocketContextProvider = ({ children }) => {
     socket.on("connect_error", (err) => {
       console.error("Socket connect error:", err);
     });
+    socket.on("getMessage", () => {
+      console.log("Socket received getMessage; refreshing notification count.");
+      fetchNotifications();
+    });
     return () => {
       socket.off("connect");
       socket.off("connect_error");
+      socket.off("getMessage");
     };
-  }, [socket]);
+  }, [socket, fetchNotifications]);
 
   return (
     <SocketContext.Provider value={{ socket }}>
